@@ -4,6 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
     <title>Пинг-понг</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/manifest+json,{
+        %22name%22: %22Пинг-понг%22,
+        %22short_name%22: %22Понг%22,
+        %22description%22: %22Классическая игра пинг-понг%22,
+        %22start_url%22: %22.%22,
+        %22display%22: %22standalone%22,
+        %22orientation%22: %22landscape%22,
+        %22background_color%22: %22%231a1a2e%22,
+        %22theme_color%22: %22%230d5e2e%22,
+        %22icons%22: []
+    }">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Понг">
+    <meta name="theme-color" content="#0d5e2e">
+    
     <style>
         :root {
             --bg: #1a1a2e;
@@ -123,7 +142,6 @@
             transform: scale(0.95);
         }
 
-        /* ==================== МОБИЛЬНЫЕ КНОПКИ ==================== */
         #mobile-controls {
             display: none;
             width: 100%;
@@ -264,8 +282,36 @@
     </div>
 
     <script>
+        // ==================== SERVICE WORKER (для оффлайн-работы) ====================
+        if ('serviceWorker' in navigator) {
+            // Создаём Service Worker из Blob (не нужен отдельный файл!)
+            const swCode = `
+                const CACHE_NAME = 'pong-v1';
+                self.addEventListener('install', (e) => {
+                    self.skipWaiting();
+                });
+                self.addEventListener('activate', (e) => {
+                    e.waitUntil(clients.claim());
+                });
+                self.addEventListener('fetch', (e) => {
+                    e.respondWith(
+                        fetch(e.request).catch(() => {
+                            return new Response('Оффлайн-режим', {status: 503});
+                        })
+                    );
+                });
+            `;
+
+            const swBlob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(swBlob);
+
+            navigator.serviceWorker.register(swUrl)
+                .then(() => console.log('📦 Service Worker зарегистрирован'))
+                .catch((err) => console.log('SW не поддерживается:', err));
+        }
+
+        // ==================== ИГРОВОЙ КОД ====================
         (function() {
-            // ==================== DOM-ЭЛЕМЕНТЫ ====================
             const canvas = document.getElementById('game');
             const ctx = canvas.getContext('2d');
             const playerScoreEl = document.getElementById('player-score');
@@ -278,7 +324,6 @@
             const mobileControls = document.getElementById('mobile-controls');
             const controlsHint = document.getElementById('controls-hint');
 
-            // ==================== АУДИО ====================
             let audioCtx = null;
 
             function initAudio() {
@@ -326,16 +371,12 @@
                 setTimeout(() => playTone(1100, 0.2, 'square', 0.12), 240);
             }
 
-            // ==================== КОНСТАНТЫ ====================
             const WIN_SCORE = 5;
             const FIELD_RATIO = 16 / 9;
             const BALL_SPEED = 6;
-
-            // 🔧 УМЕНЬШЕНЫ В 2 РАЗА: было 3 → 1.5, было 10 → 5
             const MOBILE_PADDLE_MULTIPLIER = 1.5;
             const MOBILE_BALL_MULTIPLIER = 5;
 
-            // ==================== ПЕРЕМЕННЫЕ ====================
             let gameWidth, gameHeight;
             let paddleWidth, paddleHeight;
             let ballSize;
@@ -359,7 +400,6 @@
             let btnUpPressed = false;
             let btnDownPressed = false;
 
-            // ==================== ОПРЕДЕЛЕНИЕ УСТРОЙСТВА ====================
             function detectMobile() {
                 const hasTouch = ('ontouchstart' in window) ||
                     (navigator.maxTouchPoints > 0) ||
@@ -368,19 +408,13 @@
                 isMobile = hasTouch || smallScreen;
 
                 if (mobileControls) {
-                    if (isMobile) {
-                        mobileControls.classList.add('visible');
-                        mobileControls.style.display = 'flex';
-                    } else {
-                        mobileControls.classList.remove('visible');
-                        mobileControls.style.display = 'none';
-                    }
+                    mobileControls.style.display = isMobile ? 'flex' : 'none';
+                    if (isMobile) mobileControls.classList.add('visible');
+                    else mobileControls.classList.remove('visible');
                 }
-
                 if (controlsHint) {
                     controlsHint.style.display = isMobile ? 'none' : 'block';
                 }
-
                 updateMessage();
             }
 
@@ -397,7 +431,6 @@
 
             function updateSizes() {
                 if (gameHeight <= 0) return;
-
                 if (isMobile) {
                     paddleHeight = Math.round(gameHeight * 0.1 * MOBILE_PADDLE_MULTIPLIER);
                     ballSize = Math.round(gameHeight * 0.025 * MOBILE_BALL_MULTIPLIER);
@@ -405,14 +438,11 @@
                     paddleHeight = Math.round(gameHeight * 0.1);
                     ballSize = Math.round(gameHeight * 0.025);
                 }
-
                 paddleHeight = Math.min(paddleHeight, Math.floor(gameHeight * 0.35));
                 ballSize = Math.min(ballSize, Math.floor(gameHeight * 0.15));
                 paddleHeight = Math.max(paddleHeight, 20);
                 ballSize = Math.max(ballSize, 8);
-
                 paddleWidth = Math.max(6, Math.round(gameWidth * 0.02));
-
                 playerY = clamp(playerY, 0, gameHeight - paddleHeight);
                 aiY = clamp(aiY, 0, gameHeight - paddleHeight);
             }
@@ -778,19 +808,15 @@
             document.addEventListener('click', initAudio, { once: true });
             document.addEventListener('touchstart', initAudio, { once: true });
 
-            // ==================== ЗАПУСК ====================
+            // Запуск
             detectMobile();
             resize();
             resetGame();
             gameLoop();
 
-            console.log('✅ Игра запущена');
+            console.log('✅ Пинг-понг запущен (PWA ready)');
             console.log('📱 isMobile:', isMobile);
-            console.log('📏 Поле:', gameWidth + 'x' + gameHeight,
-                '| Ракетка:', paddleHeight + 'px',
-                '| Мяч:', ballSize + 'px');
-            console.log('📱 Множители — ракетка: ×' + MOBILE_PADDLE_MULTIPLIER +
-                ' | мяч: ×' + MOBILE_BALL_MULTIPLIER);
+            console.log('📦 Можно установить как приложение!');
         })();
     </script>
 </body>
