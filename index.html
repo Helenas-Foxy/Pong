@@ -177,7 +177,6 @@
             text-align: center;
         }
 
-        /* Всегда показываем кнопки на тач-устройствах */
         @media (pointer: coarse) {
             #mobile-controls {
                 display: flex;
@@ -187,7 +186,6 @@
             }
         }
 
-        /* Дополнительно для маленьких экранов */
         @media (max-width: 768px) {
             #mobile-controls {
                 display: flex;
@@ -241,7 +239,6 @@
 <body>
 
     <div id="game-container">
-        <!-- Счёт -->
         <div id="scoreboard">
             <span>ВЫ</span>
             <span id="player-score">0</span>
@@ -250,10 +247,8 @@
             <span>AI</span>
         </div>
 
-        <!-- Игровое поле -->
         <canvas id="game"></canvas>
 
-        <!-- Мобильные кнопки управления -->
         <div id="mobile-controls">
             <button class="mobile-btn btn-up" id="btn-up">
                 <span class="btn-icon">▲</span> ВВЕРХ
@@ -263,7 +258,6 @@
             </button>
         </div>
 
-        <!-- Сообщения -->
         <div id="message">Стрелки ↑↓ / касание левой половины</div>
         <button id="restart-btn">🔄 ИГРАТЬ СНОВА</button>
         <div id="controls-hint">Пробел — пауза | R — рестарт</div>
@@ -309,9 +303,7 @@
                     gain.connect(audioCtx.destination);
                     osc.start(audioCtx.currentTime);
                     osc.stop(audioCtx.currentTime + duration);
-                } catch (e) {
-                    // Игнорируем ошибки аудио
-                }
+                } catch (e) {}
             }
 
             function soundPaddleHit() {
@@ -338,8 +330,10 @@
             const WIN_SCORE = 5;
             const FIELD_RATIO = 16 / 9;
             const BALL_SPEED = 6;
-            const MOBILE_PADDLE_MULTIPLIER = 3;
-            const MOBILE_BALL_MULTIPLIER = 10;
+
+            // 🔧 УМЕНЬШЕНЫ В 2 РАЗА: было 3 → 1.5, было 10 → 5
+            const MOBILE_PADDLE_MULTIPLIER = 1.5;
+            const MOBILE_BALL_MULTIPLIER = 5;
 
             // ==================== ПЕРЕМЕННЫЕ ====================
             let gameWidth, gameHeight;
@@ -371,20 +365,8 @@
                     (navigator.maxTouchPoints > 0) ||
                     (window.matchMedia('(pointer: coarse)').matches);
                 const smallScreen = window.innerWidth <= 768;
-
-                // Считаем мобильным если есть тач ИЛИ маленький экран
                 isMobile = hasTouch || smallScreen;
 
-                console.log('📱 detectMobile():', {
-                    hasTouch: hasTouch,
-                    smallScreen: smallScreen,
-                    isMobile: isMobile,
-                    width: window.innerWidth,
-                    touchPoints: navigator.maxTouchPoints,
-                    pointerCoarse: window.matchMedia('(pointer: coarse)').matches
-                });
-
-                // Принудительно показываем/скрываем кнопки
                 if (mobileControls) {
                     if (isMobile) {
                         mobileControls.classList.add('visible');
@@ -424,22 +406,12 @@
                     ballSize = Math.round(gameHeight * 0.025);
                 }
 
-                // Ограничения безопасности
-                paddleHeight = Math.min(paddleHeight, Math.floor(gameHeight * 0.4));
-                ballSize = Math.min(ballSize, Math.floor(gameHeight * 0.2));
+                paddleHeight = Math.min(paddleHeight, Math.floor(gameHeight * 0.35));
+                ballSize = Math.min(ballSize, Math.floor(gameHeight * 0.15));
                 paddleHeight = Math.max(paddleHeight, 20);
                 ballSize = Math.max(ballSize, 8);
 
                 paddleWidth = Math.max(6, Math.round(gameWidth * 0.02));
-
-                console.log('📏 updateSizes():', {
-                    isMobile: isMobile,
-                    gameWidth: gameWidth,
-                    gameHeight: gameHeight,
-                    paddleHeight: paddleHeight,
-                    ballSize: ballSize,
-                    paddleWidth: paddleWidth
-                });
 
                 playerY = clamp(playerY, 0, gameHeight - paddleHeight);
                 aiY = clamp(aiY, 0, gameHeight - paddleHeight);
@@ -449,7 +421,6 @@
                 return Math.max(min, Math.min(max, val));
             }
 
-            // ==================== ИНИЦИАЛИЗАЦИЯ ====================
             function resize() {
                 const maxWidth = Math.min(window.innerWidth - 16, 800);
                 const maxHeight = isMobile ?
@@ -466,7 +437,6 @@
 
                 canvas.width = gameWidth;
                 canvas.height = gameHeight;
-
                 updateSizes();
 
                 if (!gameStarted && !gameOver) {
@@ -475,14 +445,6 @@
                 }
                 playerY = clamp(playerY, 0, gameHeight - paddleHeight);
                 aiY = clamp(aiY, 0, gameHeight - paddleHeight);
-
-                console.log('📐 resize():', {
-                    gameWidth: gameWidth,
-                    gameHeight: gameHeight,
-                    paddleHeight: paddleHeight,
-                    ballSize: ballSize,
-                    playerY: playerY
-                });
             }
 
             function resetBall(direction = 1) {
@@ -521,9 +483,8 @@
                 setTimeout(() => el.classList.remove('score-pop'), 200);
             }
 
-            // ==================== ЧАСТИЦЫ ====================
             function spawnParticles(x, y) {
-                const count = isMobile ? 20 : 12;
+                const count = isMobile ? 16 : 12;
                 for (let i = 0; i < count; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 2 + Math.random() * 4;
@@ -534,7 +495,7 @@
                         vy: Math.sin(angle) * speed,
                         life: 1.0,
                         decay: 0.03 + Math.random() * 0.04,
-                        size: 2 + Math.random() * (isMobile ? 6 : 4),
+                        size: 2 + Math.random() * (isMobile ? 5 : 4),
                     });
                 }
             }
@@ -545,9 +506,7 @@
                     p.x += p.vx;
                     p.y += p.vy;
                     p.life -= p.decay;
-                    if (p.life <= 0) {
-                        particles.splice(i, 1);
-                    }
+                    if (p.life <= 0) particles.splice(i, 1);
                 }
             }
 
@@ -560,12 +519,10 @@
                 }
             }
 
-            // ==================== AI ====================
             function updateAI() {
                 const aiSpeed = gameHeight * 0.012;
                 const aiCenter = aiY + paddleHeight / 2;
                 const ballCenter = ballY;
-
                 if (ballSpeedX > 0) {
                     const targetOffset = (Math.sin(Date.now() / 800) * paddleHeight * 0.25);
                     const target = ballCenter + targetOffset;
@@ -579,27 +536,21 @@
                 aiY = clamp(aiY, 0, gameHeight - paddleHeight);
             }
 
-            // ==================== ОБНОВЛЕНИЕ ====================
             function update() {
                 if (paused || gameOver) return;
-
                 const playerSpeed = gameHeight * (isMobile ? 0.025 : 0.018);
 
-                if (keys['ArrowUp'] || keys['ArrowDown'] || btnUpPressed || btnDownPressed) {
-                    initAudio();
-                }
+                if (keys['ArrowUp'] || keys['ArrowDown'] || btnUpPressed || btnDownPressed) initAudio();
                 if (keys['ArrowUp']) playerY -= playerSpeed;
                 if (keys['ArrowDown']) playerY += playerSpeed;
                 if (btnUpPressed) playerY -= playerSpeed;
                 if (btnDownPressed) playerY += playerSpeed;
-
                 playerY = clamp(playerY, 0, gameHeight - paddleHeight);
-                updateAI();
 
+                updateAI();
                 ballX += ballSpeedX;
                 ballY += ballSpeedY;
 
-                // Отскок от стен
                 if (ballY - ballSize / 2 <= 0) {
                     ballY = ballSize / 2;
                     ballSpeedY = Math.abs(ballSpeedY);
@@ -613,7 +564,6 @@
                     spawnParticles(ballX, gameHeight);
                 }
 
-                // Отскок от ракетки игрока
                 if (
                     ballX - ballSize / 2 <= paddleWidth &&
                     ballY + ballSize / 2 >= playerY &&
@@ -629,7 +579,6 @@
                     spawnParticles(ballX, ballY);
                 }
 
-                // Отскок от ракетки AI
                 if (
                     ballX + ballSize / 2 >= gameWidth - paddleWidth &&
                     ballY + ballSize / 2 >= aiY &&
@@ -645,7 +594,6 @@
                     spawnParticles(ballX, ballY);
                 }
 
-                // Голы
                 if (ballX + ballSize / 2 < 0) {
                     aiScore++;
                     updateScoreDisplay();
@@ -668,20 +616,14 @@
 
             function endGame(winner) {
                 gameOver = true;
-                if (winner === 'Игрок') {
-                    messageEl.textContent = '🎉 ВЫ ПОБЕДИЛИ! 🎉';
-                    soundWin();
-                } else {
-                    messageEl.textContent = '😞 AI победил...';
-                }
+                messageEl.textContent = winner === 'Игрок' ? '🎉 ВЫ ПОБЕДИЛИ! 🎉' : '😞 AI победил...';
+                if (winner === 'Игрок') soundWin();
                 restartBtn.style.display = 'inline-block';
                 pauseBtn.textContent = '⏯ ПАУЗА';
             }
 
-            // ==================== ОТРИСОВКА ====================
             function draw() {
                 ctx.clearRect(0, 0, gameWidth, gameHeight);
-
                 ctx.fillStyle = '#0d5e2e';
                 ctx.fillRect(0, 0, gameWidth, gameHeight);
 
@@ -709,24 +651,16 @@
                 ctx.arc(gameWidth / 2, gameHeight / 2, gameHeight * 0.12, 0, Math.PI * 2);
                 ctx.stroke();
 
-                // Ракетка игрока
                 ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
                 ctx.shadowBlur = 8;
                 ctx.fillStyle = '#f0f0f0';
                 ctx.fillRect(0, playerY, paddleWidth, paddleHeight);
-                ctx.shadowBlur = 0;
-
-                // Ракетка AI
-                ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
-                ctx.shadowBlur = 8;
-                ctx.fillStyle = '#f0f0f0';
                 ctx.fillRect(gameWidth - paddleWidth, aiY, paddleWidth, paddleHeight);
                 ctx.shadowBlur = 0;
 
-                // Мяч
                 ctx.fillStyle = '#ffffff';
                 ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
-                ctx.shadowBlur = isMobile ? 16 : 10;
+                ctx.shadowBlur = isMobile ? 12 : 10;
                 ctx.beginPath();
                 ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -745,14 +679,12 @@
                 }
             }
 
-            // ==================== ИГРОВОЙ ЦИКЛ ====================
             function gameLoop() {
                 update();
                 draw();
                 requestAnimationFrame(gameLoop);
             }
 
-            // ==================== ОБРАБОТЧИКИ ====================
             window.addEventListener('keydown', (e) => {
                 keys[e.key] = true;
                 if (e.key === ' ' || e.code === 'Space') {
@@ -767,23 +699,17 @@
                     resize();
                     resetGame();
                 }
-                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                    e.preventDefault();
-                }
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
             });
 
-            window.addEventListener('keyup', (e) => {
-                keys[e.key] = false;
-            });
+            window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
-            // Тач на canvas
             canvas.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 initAudio();
                 const touch = e.touches[0];
                 const rect = canvas.getBoundingClientRect();
-                const touchCanvasX = touch.clientX - rect.left;
-                if (touchCanvasX < gameWidth / 2) {
+                if (touch.clientX - rect.left < gameWidth / 2) {
                     touchActive = true;
                     touchY = touch.clientY - rect.top;
                     playerY = clamp(touchY - paddleHeight / 2, 0, gameHeight - paddleHeight);
@@ -804,54 +730,31 @@
                 touchActive = false;
             }, { passive: false });
 
-            // ==================== МОБИЛЬНЫЕ КНОПКИ ====================
             function addButtonListeners(btn, setPressed) {
-                btn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
+                btn.addEventListener('touchstart', (e) => { e.preventDefault();
                     initAudio();
-                    setPressed(true);
-                }, { passive: false });
-
-                btn.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    setPressed(false);
-                }, { passive: false });
-
-                btn.addEventListener('touchcancel', (e) => {
-                    e.preventDefault();
-                    setPressed(false);
-                }, { passive: false });
-
-                btn.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
+                    setPressed(true); }, { passive: false });
+                btn.addEventListener('touchend', (e) => { e.preventDefault();
+                    setPressed(false); }, { passive: false });
+                btn.addEventListener('touchcancel', (e) => { e.preventDefault();
+                    setPressed(false); }, { passive: false });
+                btn.addEventListener('mousedown', (e) => { e.preventDefault();
                     initAudio();
-                    setPressed(true);
-                });
-
-                btn.addEventListener('mouseup', (e) => {
-                    e.preventDefault();
-                    setPressed(false);
-                });
-
-                btn.addEventListener('mouseleave', () => {
-                    setPressed(false);
-                });
+                    setPressed(true); });
+                btn.addEventListener('mouseup', (e) => { e.preventDefault();
+                    setPressed(false); });
+                btn.addEventListener('mouseleave', () => { setPressed(false); });
             }
 
             addButtonListeners(btnUp, (p) => { btnUpPressed = p; });
             addButtonListeners(btnDown, (p) => { btnDownPressed = p; });
 
-            pauseBtn.addEventListener('click', () => {
-                initAudio();
-                togglePause();
-            });
-
-            restartBtn.addEventListener('click', () => {
-                initAudio();
+            pauseBtn.addEventListener('click', () => { initAudio();
+                togglePause(); });
+            restartBtn.addEventListener('click', () => { initAudio();
                 detectMobile();
                 resize();
-                resetGame();
-            });
+                resetGame(); });
 
             function togglePause() {
                 if (gameOver) return;
@@ -863,17 +766,13 @@
             let resizeTimeout;
             window.addEventListener('resize', () => {
                 clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(() => {
-                    detectMobile();
-                    resize();
-                }, 250);
+                resizeTimeout = setTimeout(() => { detectMobile();
+                    resize(); }, 250);
             });
 
             window.addEventListener('orientationchange', () => {
-                setTimeout(() => {
-                    detectMobile();
-                    resize();
-                }, 400);
+                setTimeout(() => { detectMobile();
+                    resize(); }, 400);
             });
 
             document.addEventListener('click', initAudio, { once: true });
@@ -887,10 +786,11 @@
 
             console.log('✅ Игра запущена');
             console.log('📱 isMobile:', isMobile);
-            console.log('📏 Размеры — поле:', gameWidth + 'x' + gameHeight,
-                '| ракетка:', paddleHeight + 'px',
-                '| мяч:', ballSize + 'px');
-            console.log('🔘 Кнопки:', mobileControls.style.display === 'flex' ? 'ПОКАЗАНЫ' : 'скрыты');
+            console.log('📏 Поле:', gameWidth + 'x' + gameHeight,
+                '| Ракетка:', paddleHeight + 'px',
+                '| Мяч:', ballSize + 'px');
+            console.log('📱 Множители — ракетка: ×' + MOBILE_PADDLE_MULTIPLIER +
+                ' | мяч: ×' + MOBILE_BALL_MULTIPLIER);
         })();
     </script>
 </body>
