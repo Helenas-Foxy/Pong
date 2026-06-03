@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Пинг-понг | Полный экран</title>
+    <style>
+        /* Глобальный сброс — никаких отступов и прокруток */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* убираем выделение при касаниях */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            touch-action: none; /* предотвращаем прокрутку и масштабирование жестами */
+        }
+
+        /* Контейнер игры — строго на весь экран */
+        #gameContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0f1e;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #0a0f1e;
+        }
+
+        /* Блок кнопок управления — поверх игрового поля, удобно для пальцев */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.55);
+            padding: 12px 20px;
+            border-radius: 80px;
+            width: fit-content;
+            margin: 0 auto;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .controls button {
+            font-size: 28px;
+            font-weight: bold;
+            padding: 12px 36px;
+            background: #1e2a3a;
+            color: white;
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: 0.05s linear;
+            letter-spacing: 2px;
+            touch-action: manipulation;
+            font-family: monospace;
+            box-shadow: 0 2px 8px black;
+        }
+
+        .controls button:active {
+            transform: scale(0.94);
+            background: #2c5a7a;
+        }
+
+        /* Адаптация под горизонтальную ориентацию: кнопки чуть компактнее */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .controls {
+                bottom: 8px;
+                padding: 6px 16px;
+                gap: 20px;
+            }
+            .controls button {
+                font-size: 22px;
+                padding: 6px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="pongCanvas"></canvas>
+    </div>
+    <div class="controls">
+        <button id="upBtn">▲ ВВЕРХ</button>
+        <button id="downBtn">▼ ВНИЗ</button>
+    </div>
+
+    <script>
+        (function(){
+            // ----- ПОЛУЧАЕМ ЭЛЕМЕНТЫ -----
+            const canvas = document.getElementById('pongCanvas');
+            let ctx = canvas.getContext('2d');
+            
+            // ----- ПАРАМЕТРЫ ПОЛЯ (обновляются динамически) -----
+            let width, height;
+            
+            // ----- РАКЕТКИ -----
+            let playerY = 0;
+            let playerHeight = 120;
+            let aiY = 0;
+            let aiHeight = 120;
+            
+            // ----- МЯЧ -----
+            let ballX, ballY;
+            const BALL_SIZE = 14;
+            let ballSpeedX = 5;
+            let ballSpeedY = 4;
+            const BASE_SPEED = 5;
+            
+            // ----- СЧЁТ -----
+            let playerScore = 0;
+            let aiScore = 0;
+            
+            // ----- УПРАВЛЕНИЕ (кнопки) -----
+            let moveUp = false;
+            let moveDown = false;
+            
+            // ----- ФЛАГ ДЛЯ СОСТОЯНИЯ ПОБЕДЫ -----
+            let gameActive = true;
+            let winner = null; // 'player' или 'ai'
+            
+            // ========== 1. ФУНКЦИЯ ПЕРЕСЧЁТА РАЗМЕРОВ (РАСТЯГИВАЕТ ПОЛЕ НА ВЕСЬ ЭКРАН) ==========
+            function resizeAndResetPositions() {
+                // Берём реальные размеры окна — это даст полный охват без адресной строки
+                width = window.innerWidth;
+                height = window.innerHeight;
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                // Динамический размер ракеток: 12% от высоты, но не меньше 80px и не больше 180px
+                playerHeight = Math.min(180, Math.max(80, height * 0.18));
+                aiHeight = playerHeight;
+                
+                // Перемещаем ракетки в разумные границы
+                playerY = Math.min(Math.max(playerY, 0), height - playerHeight);
+                if (playerY === undefined || isNaN(playerY)) playerY = height/2 - playerHeight/2;
+                
+                aiY = Math.min(Math.max(aiY, 0), height - aiHeight);
+                if (aiY === undefined || isNaN(aiY)) aiY = height/2 - aiHeight/2;
+                
+                // Мяч не вылетает за пределы (корректировка при смене ориентации)
+                if (ballX === undefined || ballX > width) ballX = width/2;
+                if (ballY === undefined || ballY > height) ballY = height/2;
+                ballX = Math.min(Math.max(ballX, 20), width - 20);
+                ballY = Math.min(Math.max(ballY, 20), height - 20);
+            }
+            
+            // ========== 2. СБРОС МЯЧА ПОСЛЕ ОЧКА ==========
+            function resetBall() {
+                if (!gameActive) return;
+                ballX = width / 2;
+                ballY = height / 2;
+                // Случайное направление: то влево, то вправо
+                ballSpeedX = BASE_SPEED * (Math.random() > 0.5 ? 1 : -1);
+                ballSpeedY = BASE_SPEED * (Math.random() * 1.4 - 0.7);
+                // Ограничиваем минимальную вертикальную скорость, чтобы игра не была скучной
+                if (Math.abs(ballSpeedY) < 2) ballSpeedY = ballSpeedY > 0 ? 2.2 : -2.2;
+                // небольшая задержка перед движением не нужна, продолжаем сразу
+            }
+            
+            // ========== 3. ЛОГИКА ДВИЖЕНИЯ AI (следит за мячом) ==========
+            function updateAI() {
+                if (!gameActive) return;
+                // Центр ракетки AI
+                let aiCenter = aiY + aiHeight/2;
+                let targetY = ballY - aiHeight/2;
+                let aiMoveSpeed = 5.5;
+                
+                if (aiCenter < ballY - 12) aiY += aiMoveSpeed;
+                else if (aiCenter > ballY + 12) aiY -= aiMoveSpeed;
+                
+                // Границы для AI
+                aiY = Math.min(Math.max(aiY, 0), height - aiHeight);
+            }
+            
+            // ========== 4. ОБНОВЛЕНИЕ МЯЧА, СТОЛКНОВЕНИЯ, ОЧКИ ==========
+            function updateBall() {
+                if (!gameActive) return;
+                
+                ballX += ballSpeedX;
+                ballY += ballSpeedY;
+                
+                // ---- Столкновение с верхней и нижней стенкой ----
+                if (ballY - BALL_SIZE/2 <= 0) {
+                    ballY = BALL_SIZE/2;
+                    ballSpeedY = -ballSpeedY;
+                }
+                if (ballY + BALL_SIZE/2 >= height) {
+                    ballY = height - BALL_SIZE/2;
+                    ballSpeedY = -ballSpeedY;
+                }
+                
+                // ---- СТОЛКНОВЕНИЕ С РАКЕТКОЙ ИГРОКА (левая сторона) ----
+                // Левая ракетка: x = 15, ширина = 12. Зона удара примерно от x=10 до x=32
+                if (ballX - BALL_SIZE/2 <= 27 && ballX + BALL_SIZE/2 >= 15) {
+                    if (ballY + BALL_SIZE/2 > playerY && ballY - BALL_SIZE/2 < playerY + playerHeight) {
+                        // Отскок
+                        ballSpeedX = -ballSpeedX;
+                        // Эффект от места касания (изменяет угол)
+                        let hitPos = (ballY - playerY) / playerHeight;
+                        let angle = (hitPos - 0.5) * 1.4;
+                        ballSpeedY = (ballSpeedY + angle * 5);
+                        // Немного увеличиваем скорость при каждом ударе, но не более 9
+                        let newSpeedX = Math.abs(ballSpeedX) + 0.2;
+                        ballSpeedX = ballSpeedX > 0 ? newSpeedX : -newSpeedX;
+                        ballSpeedX = Math.min(Math.max(ballSpeedX, -9), 9);
+                        ballSpeedY = Math.min(Math.max(ballSpeedY, -8), 8);
+                        // Коррекция позиции, чтобы не залипало
+                        ballX = 28;
+                    }
+                }
+                
+                // ---- СТОЛКНОВЕНИЕ С РАКЕТКОЙ AI (правая сторона) ----
+                if (ballX + BALL_SIZE/2 >= width - 27 && ballX - BALL_SIZE/2 <= width - 15) {
+                    if (ballY + BALL_SIZE/2 > aiY && ballY - BALL_SIZE/2 < aiY + aiHeight) {
+                        ballSpeedX = -ballSpeedX;
+                        let hitPos = (ballY - aiY) / aiHeight;
+                        let angle = (hitPos - 0.5) * 1.4;
+                        ballSpeedY = (ballSpeedY + angle * 5);
+                        let newSpeedX = Math.abs(ballSpeedX) + 0.2;
+                        ballSpeedX = ballSpeedX > 0 ? newSpeedX : -newSpeedX;
+                        ballSpeedX = Math.min(Math.max(ballSpeedX, -9), 9);
+                        ballSpeedY = Math.min(Math.max(ballSpeedY, -8), 8);
+                        ballX = width - 28;
+                    }
+                }
+                
+                // ---- ПРОВЕРКА ОЧКОВ (выход за левую или правую границу) ----
+                if (ballX + BALL_SIZE/2 < 0) {
+                    // Очко AI
+                    if (gameActive) {
+                        aiScore++;
+                        if (aiScore >= 7) {
+                            gameActive = false;
+                            winner = 'ai';
+                        } else {
+                            resetBall();
+                        }
+                    }
+                } 
+                else if (ballX - BALL_SIZE/2 > width) {
+                    // Очко игрока
+                    if (gameActive) {
+                        playerScore++;
+                        if (playerScore >= 7) {
+                            gameActive = false;
+                            winner = 'player';
+                        } else {
+                            resetBall();
+                        }
+                    }
+                }
+                
+                // Доп. защита: мяч не вылетает за края по Y
+                ballY = Math.min(Math.max(ballY, BALL_SIZE/2), height - BALL_SIZE/2);
+            }
+            
+            // ========== 5. ДВИЖЕНИЕ РАКЕТКИ ИГРОКА (по нажатым кнопкам) ==========
+            function updatePlayer() {
+                if (!gameActive) return;
+                const MOVE_STEP = 8;
+                if (moveUp) playerY -= MOVE_STEP;
+                if (moveDown) playerY += MOVE_STEP;
+                // Границы
+                playerY = Math.min(Math.max(playerY, 0), height - playerHeight);
+            }
+            
+            // ========== 6. ОТРИСОВКА ВСЕГО (полный экран, гладкий дизайн) ==========
+            function draw() {
+                if (!ctx) return;
+                ctx.clearRect(0, 0, width, height);
+                
+                // ---- Фон с лёгким градиентом ----
+                const grad = ctx.createLinearGradient(0, 0, 0, height);
+                grad.addColorStop(0, '#0a1428');
+                grad.addColorStop(1, '#091520');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, width, height);
+                
+                // ---- Пунктирная линия по центру ----
+                ctx.beginPath();
+                ctx.strokeStyle = '#ffffff44';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([15, 25]);
+                ctx.moveTo(width/2, 0);
+                ctx.lineTo(width/2, height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // ---- РАКЕТКА ИГРОКА (зелёная с подсветкой) ----
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = '#6fbf6f';
+                ctx.fillStyle = '#4cd964';
+                ctx.fillRect(14, playerY, 12, playerHeight);
+                
+                // ---- РАКЕТКА AI (оранжевая) ----
+                ctx.shadowColor = '#ff8c42';
+                ctx.fillStyle = '#ff7840';
+                ctx.fillRect(width - 26, aiY, 12, aiHeight);
+                
+                // ---- МЯЧ (свечение) ----
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = 'white';
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(ballX, ballY, BALL_SIZE/2, 0, Math.PI*2);
+                ctx.fill();
+                
+                ctx.shadowBlur = 0;
+                
+                // ---- СЧЁТ крупными цифрами ----
+                ctx.font = `bold ${Math.min(58, width * 0.1)}px "Courier New", monospace`;
+                ctx.fillStyle = '#eef5ff';
+                ctx.shadowBlur = 0;
+                ctx.fillText(playerScore, width * 0.28, height * 0.1);
+                ctx.fillText(aiScore, width * 0.68, height * 0.1);
+                
+                // ---- СООБЩЕНИЕ О ПОБЕДЕ (как на скрине: "⚠️ AI победил...") ----
+                if (!gameActive && winner === 'ai') {
+                    ctx.font = `bold ${Math.min(34, width * 0.07)}px system-ui, sans-serif`;
+                    ctx.fillStyle = '#ffaa66';
+                    ctx.shadowBlur = 3;
+                    ctx.fillText('⚠️ AI победил...', width/2 - 130, height/2);
+                    ctx.font = `18px monospace`;
+                    ctx.fillStyle = '#ccccaa';
+                    ctx.fillText('коснись экрана для новой игры', width/2 - 130, height/2 + 55);
+                } 
+                else if (!gameActive && winner === 'player') {
+                    ctx.font = `bold ${Math.min(34, width * 0.07)}px system-ui, sans-serif`;
+                    ctx.fillStyle = '#aaffaa';
+                    ctx.fillText('🏆 ПОБЕДА ИГРОКА!', width/2 - 140, height/2);
+                    ctx.font = `18px monospace`;
+                    ctx.fillStyle = '#ccccaa';
+                    ctx.fillText('коснись для перезапуска', width/2 - 105, height/2 + 55);
+                }
+            }
+            
+            // ========== 7. ПЕРЕЗАПУСК ИГРЫ (по касанию после окончания) ==========
+            function restartGame() {
+                playerScore = 0;
+                aiScore = 0;
+                gameActive = true;
+                winner = null;
+                // Сброс позиций
+                playerY = height/2 - playerHeight/2;
+                aiY = height/2 - aiHeight/2;
+                resetBall();
+                // чуть сбросим скорости до базовых
+                ballSpeedX = BASE_SPEED * (Math.random() > 0.5 ? 1 : -1);
+                ballSpeedY = BASE_SPEED * (Math.random() * 1.2 - 0.6);
+                if (Math.abs(ballSpeedY) < 2) ballSpeedY = 2.5;
+                moveUp = false;
+                moveDown = false;
+            }
+            
+            // ========== 8. ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ ==========
+            function gameLoop() {
+                if (gameActive) {
+                    updatePlayer();
+                    updateAI();
+                    updateBall();
+                }
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+            
+            // ========== 9. УПРАВЛЕНИЕ КНОПКАМИ (МОБИЛЬНОЕ + ПК) ==========
+            function initControls() {
+                const upBtn = document.getElementById('upBtn');
+                const downBtn = document.getElementById('downBtn');
+                
+                if (!upBtn || !downBtn) return;
+                
+                const setMoveUp = (state) => { if (gameActive) moveUp = state; };
+                const setMoveDown = (state) => { if (gameActive) moveDown = state; };
+                
+                // Мышь / десктоп
+                upBtn.addEventListener('mousedown', (e) => { e.preventDefault(); setMoveUp(true); });
+                upBtn.addEventListener('mouseup', () => setMoveUp(false));
+                upBtn.addEventListener('mouseleave', () => setMoveUp(false));
+                downBtn.addEventListener('mousedown', (e) => { e.preventDefault(); setMoveDown(true); });
+                downBtn.addEventListener('mouseup', () => setMoveDown(false));
+                downBtn.addEventListener('mouseleave', () => setMoveDown(false));
+                
+                // Touch-события для мобильных
+                upBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setMoveUp(true); }, {passive: false});
+                upBtn.addEventListener('touchend', (e) => { e.preventDefault(); setMoveUp(false); });
+                downBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setMoveDown(true); }, {passive: false});
+                downBtn.addEventListener('touchend', (e) => { e.preventDefault(); setMoveDown(false); });
+            }
+            
+            // ========== 10. ПОЛНОЭКРАННЫЙ РЕЖИМ + СКРЫТИЕ АДРЕСНОЙ СТРОКИ (МОБИЛЬНЫЙ) ==========
+            function enableFullscreenAndHideUI() {
+                // Автоматически запрашиваем полноэкранный режим при первом касании где угодно
+                const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+                if (isMobile) {
+                    const activateFullscreen = () => {
+                        const root = document.documentElement;
+                        if (root.requestFullscreen) {
+                            root.requestFullscreen().catch(err => console.warn("Fullscreen error:", err));
+                        }
+                        // удаляем, чтобы не мешать повторным нажатиям после перезапуска
+                        document.body.removeEventListener('touchstart', activateFullscreen);
+                        document.body.removeEventListener('click', activateFullscreen);
+                    };
+                    document.body.addEventListener('touchstart', activateFullscreen, { once: true });
+                    document.body.addEventListener('click', activateFullscreen, { once: true });
+                }
+                
+                // При изменении ориентации или размера — подстраиваем поле на 100%
+                window.addEventListener('resize', () => {
+                    resizeAndResetPositions();
+                    // корректировка ракеток, чтобы не выезжали за границы
+                    playerY = Math.min(Math.max(playerY, 0), height - playerHeight);
+                    aiY = Math.min(Math.max(aiY, 0), height - aiHeight);
+                    if (!gameActive) draw(); // перерисовка при победе
+                });
+            }
+            
+            // ========== 11. ПЕРЕЗАПУСК ПО КАСАНИЮ ПОСЛЕ ПОБЕДЫ (удобство) ==========
+            function addRestartOnTap() {
+                canvas.addEventListener('touchstart', (e) => {
+                    if (!gameActive) {
+                        e.preventDefault();
+                        restartGame();
+                    }
+                });
+                canvas.addEventListener('mousedown', (e) => {
+                    if (!gameActive) {
+                        e.preventDefault();
+                        restartGame();
+                    }
+                });
+            }
+            
+            // ========== 12. СТАРТ ВСЕГО ==========
+            function init() {
+                resizeAndResetPositions();
+                // Начальные позиции
+                playerY = height/2 - playerHeight/2;
+                aiY = height/2 - aiHeight/2;
+                resetBall();
+                initControls();
+                enableFullscreenAndHideUI();
+                addRestartOnTap();
+                gameLoop();
+            }
+            
+            init();
+        })();
+    </script>
+</body>
+</html>
