@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
-    <title>Пинг-понг | Классическая аркада</title>
+    <title>Пинг-понг | Аркада</title>
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%D0%9F%D0%B8%D0%BD%D0%B3-%D0%BF%D0%BE%D0%BD%D0%B3%22%2C%22short_name%22%3A%22%D0%9F%D0%BE%D0%BD%D0%B3%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22fullscreen%22%2C%22orientation%22%3A%22landscape%22%2C%22background_color%22%3A%22%230d5e2e%22%2C%22theme_color%22%3A%22%230d5e2e%22%7D">
@@ -31,7 +31,6 @@
             touch-action: manipulation;
         }
 
-        /* Поворот экрана */
         #rotate-warning {
             display: none;
             position: fixed;
@@ -58,7 +57,6 @@
             50% { transform: rotate(90deg); }
         }
 
-        /* Главный контейнер */
         #game-container {
             display: flex;
             flex-direction: column;
@@ -69,15 +67,14 @@
             background: #0a0a1a;
         }
 
-        /* Верхняя панель */
         .score-panel {
             display: flex;
             justify-content: space-between;
             align-items: center;
             width: 100%;
-            max-width: 850px;
+            max-width: 950px;
             padding: 8px 20px;
-            background: rgba(0,0,0,0.3);
+            background: rgba(0,0,0,0.4);
             color: #f5f5f5;
             font-weight: bold;
             flex-shrink: 0;
@@ -91,9 +88,9 @@
         }
 
         .score-value {
-            font-size: 2.2rem;
+            font-size: 2.3rem;
             font-weight: 800;
-            min-width: 55px;
+            min-width: 60px;
             text-align: center;
             color: #ffd966;
             transition: transform 0.1s ease;
@@ -110,7 +107,7 @@
             border: 1.5px solid rgba(255,255,255,0.5);
             color: white;
             font-size: 0.9rem;
-            padding: 6px 16px;
+            padding: 6px 18px;
             border-radius: 40px;
             cursor: pointer;
             transition: all 0.1s;
@@ -122,7 +119,6 @@
             transform: scale(0.96);
         }
 
-        /* Canvas обертка */
         .canvas-wrapper {
             flex: 1;
             display: flex;
@@ -141,10 +137,10 @@
             height: auto;
             max-width: 100%;
             max-height: 100%;
-            border: 2px solid #2c3e2f;
+            border: 2px solid #2c4a2a;
+            cursor: none;
         }
 
-        /* Инфо-зона */
         .info-area {
             text-align: center;
             font-size: 0.8rem;
@@ -156,7 +152,7 @@
         #restart-button {
             background: #f0f0f0;
             border: none;
-            padding: 6px 18px;
+            padding: 6px 20px;
             border-radius: 40px;
             font-weight: bold;
             margin-top: 4px;
@@ -169,13 +165,12 @@
             transform: scale(0.96);
         }
 
-        /* Мобильные кнопки */
         .mobile-buttons {
             display: none;
             width: 100%;
             gap: 15px;
             padding: 10px 20px;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6);
             backdrop-filter: blur(8px);
             flex-shrink: 0;
         }
@@ -211,15 +206,12 @@
             padding: 0;
         }
 
-        /* === ДЕСКТОП === */
         @media (min-width: 769px) and (orientation: landscape) {
             .mobile-buttons { display: none !important; }
             #rotate-warning { display: none !important; }
             #game-container { display: flex !important; }
-            canvas { max-height: 70vh; }
         }
 
-        /* Мобильный альбом */
         @media (max-width: 768px) and (orientation: landscape) {
             .mobile-buttons { display: flex; }
             .pause-btn { display: none; }
@@ -231,7 +223,6 @@
             #game-container { display: flex; }
         }
 
-        /* Портрет (заглушка) */
         @media (max-width: 768px) and (orientation: portrait) {
             #game-container { display: none; }
             #rotate-warning { display: flex; }
@@ -275,7 +266,7 @@
 
 <script>
     (function(){
-        // -------- DOM ----------
+        // DOM элементы
         const canvas = document.getElementById('pingCanvas');
         const ctx = canvas.getContext('2d');
         const playerScoreSpan = document.getElementById('playerScore');
@@ -287,22 +278,22 @@
         const btnUp = document.getElementById('mobileUp');
         const btnDown = document.getElementById('mobileDown');
 
-        // -------- Аудио ----------
-        let audioAllowed = false;
+        // ----- Аудио -----
         let audioCtx = null;
+        let audioEnabled = false;
 
         function initAudio() {
-            if (!audioAllowed) {
+            if (!audioEnabled) {
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    audioAllowed = true;
-                } catch(e) { console.warn("audio not supported"); }
+                    audioEnabled = true;
+                } catch(e) { console.warn("Audio not supported"); }
             }
             if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        function playBeep(freq, duration, vol = 0.12, type = 'square') {
-            if (!audioCtx || !audioAllowed) return;
+        function playTone(freq, duration, vol = 0.12, type = 'square') {
+            if (!audioCtx || !audioEnabled) return;
             try {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -317,75 +308,72 @@
             } catch(e) {}
         }
 
-        function soundHitPaddle() { playBeep(980, 0.07, 0.1, 'sine'); playBeep(1250, 0.05, 0.08, 'triangle'); }
-        function soundWall() { playBeep(540, 0.09, 0.08, 'triangle'); }
-        function soundScore() { playBeep(320, 0.2, 0.15, 'sawtooth'); setTimeout(()=>playBeep(260,0.25,0.12,'sawtooth'),80); }
-        function soundWin() { playBeep(640,0.12,0.12); setTimeout(()=>playBeep(820,0.12,0.12),100); setTimeout(()=>playBeep(1040,0.2,0.1),200); }
+        function hitPaddleSound() { playTone(1050, 0.06, 0.1, 'sine'); playTone(1300, 0.05, 0.08, 'triangle'); }
+        function wallSound() { playTone(560, 0.08, 0.09, 'triangle'); }
+        function scoreSound() { playTone(340, 0.22, 0.14, 'sawtooth'); setTimeout(()=>playTone(280,0.24,0.12,'sawtooth'),80); }
+        function winSound() { playTone(660,0.12,0.13); setTimeout(()=>playTone(860,0.12,0.13),100); setTimeout(()=>playTone(1080,0.22,0.11),210); }
 
-        // -------- Параметры ----------
+        // ----- Игровые параметры -----
         const WIN_SCORE = 5;
         let gameW = 800, gameH = 450;
-        let paddleW = 12, paddleH = 80, ballSize = 14;
+        let paddleW = 12, paddleH = 85, ballSize = 14;
         let playerY = 0, aiY = 0;
         let ballX = 400, ballY = 225;
-        let ballSpdX = 5.2, ballSpdY = 3.2;
+        let ballVx = 5.6, ballVy = 3.8;
         let playerScore = 0, aiScore = 0;
         let gameOver = false, paused = false;
         let isMobile = false;
         
-        // управление
+        // Управление
         let upPressed = false, downPressed = false;
-        let mouseActive = false;
         
-        // частицы
+        // Частицы (фейерверк)
         let particles = [];
 
-        // ---------- Инициализация геометрии ----------
+        // ----- Определение мобильного -----
         function detectMobileFlag() {
             isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 768;
-            if (isMobile) {
-                document.querySelector('.mobile-buttons').style.display = 'flex';
-                if(desktopPause) desktopPause.style.display = 'none';
-            } else {
-                document.querySelector('.mobile-buttons').style.display = 'none';
-                if(desktopPause) desktopPause.style.display = 'inline-block';
-            }
+            const mobileDiv = document.querySelector('.mobile-buttons');
+            if (mobileDiv) mobileDiv.style.display = isMobile ? 'flex' : 'none';
+            if (desktopPause) desktopPause.style.display = isMobile ? 'none' : 'inline-block';
             updateMessageText();
         }
 
         function updateMessageText() {
             if(gameOver) return;
             if(paused) msgDiv.innerText = '⏸ ПАУЗА. Нажмите пробел или кнопку';
-            else if(isMobile) msgDiv.innerText = '⬆️⬇️ кнопки или касание левой части экрана';
-            else msgDiv.innerText = '↑↓ или двигайте мышью по левой стороне поля';
+            else if(isMobile) msgDiv.innerText = '⬆️⬇️ кнопки или касание левой половины';
+            else msgDiv.innerText = '↑↓ или мышь (левая сторона поля) | Скорость увеличена';
         }
 
+        // ----- Геометрия и ресайз -----
         function resizeCanvas() {
             const wrapper = document.querySelector('.canvas-wrapper');
-            let maxW = wrapper.clientWidth - 10;
-            let maxH = wrapper.clientHeight - 10;
-            if(!isMobile) {
-                maxW = Math.min(maxW, 950);
-                maxH = Math.min(maxH, 600);
+            let maxW = wrapper.clientWidth - 12;
+            let maxH = wrapper.clientHeight - 12;
+            if (!isMobile) {
+                maxW = Math.min(maxW, 1000);
+                maxH = Math.min(maxH, 650);
             }
-            const targetRatio = 16/9;
-            let width = maxW, height = width / targetRatio;
-            if(height > maxH) {
+            const ratio = 16/9;
+            let width = maxW;
+            let height = width / ratio;
+            if (height > maxH) {
                 height = maxH;
-                width = height * targetRatio;
+                width = height * ratio;
             }
-            gameW = Math.max(280, Math.floor(width));
-            gameH = Math.max(180, Math.floor(height));
+            gameW = Math.max(320, Math.floor(width));
+            gameH = Math.max(200, Math.floor(height));
             canvas.width = gameW;
             canvas.height = gameH;
             
             paddleW = Math.max(6, Math.floor(gameW * 0.022));
-            paddleH = Math.floor(gameH * (isMobile ? 0.14 : 0.12));
+            paddleH = Math.floor(gameH * (isMobile ? 0.14 : 0.125));
             paddleH = Math.min(paddleH, Math.floor(gameH * 0.4));
-            ballSize = Math.max(8, Math.floor(gameH * 0.026));
+            ballSize = Math.max(8, Math.floor(gameH * 0.028));
             
-            if(!gameOver && !paused) {
-                if(playerY === 0 && aiY === 0) {
+            if (!gameOver && !paused) {
+                if (playerY === 0 && aiY === 0) {
                     playerY = gameH/2 - paddleH/2;
                     aiY = gameH/2 - paddleH/2;
                 }
@@ -396,19 +384,25 @@
             ballY = Math.min(Math.max(ballSize/2, ballY), gameH - ballSize/2);
         }
 
-        // -------- Игровая логика ----------
+        // ----- Сброс мяча с хорошей скоростью (для десктопа базовая скорость выше)-----
         function resetBall(direction = 1) {
             ballX = gameW/2;
             ballY = gameH/2;
+            // базовая скорость для десктопа выше, для мобилы чуть ниже
+            let baseSpd = isMobile ? 5.2 : 7.0;
             let angle = (Math.random() * Math.PI / 2.4) - Math.PI / 4.8;
-            let spdBase = Math.min(6.5, gameW * 0.0085);
-            ballSpdX = spdBase * Math.cos(angle) * direction;
-            ballSpdY = spdBase * Math.sin(angle) * (Math.random() > 0.5 ? 1 : -1);
-            if(Math.abs(ballSpdX) < 3.5) ballSpdX = 4.2 * direction;
-            if(Math.abs(ballSpdY) < 2) ballSpdY = ballSpdY > 0 ? 2.5 : -2.5;
+            let spd = baseSpd * (0.9 + Math.random() * 0.2);
+            ballVx = spd * Math.cos(angle) * direction;
+            ballVy = spd * Math.sin(angle) * (Math.random() > 0.5 ? 1 : -1);
+            if (Math.abs(ballVx) < (isMobile ? 3.2 : 4.5)) ballVx = (isMobile ? 4.0 : 5.8) * direction;
+            if (Math.abs(ballVy) < (isMobile ? 2.2 : 2.8)) ballVy = ballVy > 0 ? (isMobile ? 2.5 : 3.2) : -(isMobile ? 2.5 : 3.2);
+            // ограничим максимальную скорость
+            let maxSpd = isMobile ? 7.2 : 9.5;
+            if (Math.abs(ballVx) > maxSpd) ballVx = ballVx > 0 ? maxSpd : -maxSpd;
+            if (Math.abs(ballVy) > maxSpd) ballVy = ballVy > 0 ? maxSpd : -maxSpd;
         }
 
-        function resetGameFull() {
+        function resetFullGame() {
             gameOver = false;
             paused = false;
             playerScore = 0;
@@ -420,20 +414,14 @@
             resetBall(Math.random() > 0.5 ? 1 : -1);
             updatePauseButtonsText();
             updateMessageText();
-            if(restartBtn) restartBtn.style.display = 'inline-block';
-            else if(restartBtn) restartBtn.innerText = '🔄 НОВАЯ ИГРА';
         }
 
         function updateScoreUI() {
             playerScoreSpan.innerText = playerScore;
             aiScoreSpan.innerText = aiScore;
-            if(playerScore === WIN_SCORE || aiScore === WIN_SCORE) {
-                if(playerScore === WIN_SCORE) msgDiv.innerText = '✨ ПОБЕДА! ✨ Нажмите "Новая игра"';
-                else msgDiv.innerText = '💀 AI победил... Нажмите "Новая игра"';
-            }
         }
 
-        function animateScorePop(which) {
+        function popScoreAnim(which) {
             const el = which === 'player' ? playerScoreSpan : aiScoreSpan;
             el.classList.add('score-pop');
             setTimeout(() => el.classList.remove('score-pop'), 180);
@@ -442,180 +430,199 @@
         function endGame(winner) {
             gameOver = true;
             paused = false;
-            if(winner === 'player') {
-                msgDiv.innerText = '🏆 ВЫ ПОБЕДИЛИ! 🏆';
-                soundWin();
+            if (winner === 'player') {
+                msgDiv.innerText = '🏆 ПОБЕДА! 🏆 Нажмите "Новая игра"';
+                winSound();
             } else {
-                msgDiv.innerText = '🤖 AI победил. Попробуйте снова';
-                soundWin();
+                msgDiv.innerText = '🤖 AI ПОБЕДИЛ... Нажмите "Новая игра"';
+                winSound();
             }
             updatePauseButtonsText();
         }
 
-        // частицы
+        // ----- Частицы удара -----
         function addParticles(x, y) {
-            let count = isMobile ? 10 : 12;
-            for(let i=0;i<count;i++) {
+            let count = isMobile ? 12 : 18;
+            for (let i = 0; i < count; i++) {
                 let angle = Math.random() * Math.PI * 2;
-                let spd = 1.5 + Math.random() * 4;
+                let speed = 1.5 + Math.random() * 4.5;
                 particles.push({
                     x: x, y: y,
-                    vx: Math.cos(angle) * spd,
-                    vy: Math.sin(angle) * spd,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
                     life: 1,
                     decay: 0.025 + Math.random() * 0.035,
-                    size: 2 + Math.random() * 4
+                    size: 2 + Math.random() * 5
                 });
             }
         }
 
         function updateParticles() {
-            for(let i=particles.length-1; i>=0; i--) {
+            for (let i = particles.length-1; i >= 0; i--) {
                 let p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
                 p.life -= p.decay;
-                if(p.life <= 0) particles.splice(i,1);
+                if (p.life <= 0) particles.splice(i,1);
             }
         }
 
-        // AI
+        // ----- AI (адаптивный, без дрожания)-----
         function updateAI() {
             let center = aiY + paddleH/2;
-            let speed = gameH * 0.012;
-            if(ballSpdX > 0) {
-                let target = ballY + (Math.sin(Date.now() / 700) * paddleH * 0.2);
-                if(center < target - 6) aiY += speed;
-                else if(center > target + 6) aiY -= speed;
+            let speed = gameH * (isMobile ? 0.011 : 0.0095);
+            if (ballVx > 0) {
+                let targetY = ballY;
+                let offset = Math.sin(Date.now() / 750) * paddleH * 0.18;
+                targetY += offset;
+                if (center < targetY - 8) aiY += speed;
+                else if (center > targetY + 8) aiY -= speed;
             } else {
                 let mid = gameH/2;
-                if(center < mid - 12) aiY += speed * 0.6;
-                else if(center > mid + 12) aiY -= speed * 0.6;
+                if (center < mid - 15) aiY += speed * 0.55;
+                else if (center > mid + 15) aiY -= speed * 0.55;
             }
             aiY = Math.min(Math.max(0, aiY), gameH - paddleH);
         }
 
-        // Обновление логики
+        // ----- ОСНОВНАЯ ЛОГИКА (исправлено столкновение с AI) -----
         function updateGame() {
-            if(paused || gameOver) return;
+            if (paused || gameOver) return;
             
-            let moveSpeed = gameH * (isMobile ? 0.022 : 0.018);
-            if(upPressed) playerY -= moveSpeed;
-            if(downPressed) playerY += moveSpeed;
+            // Движение игрока
+            let moveSpd = gameH * (isMobile ? 0.024 : 0.02);
+            if (upPressed) playerY -= moveSpd;
+            if (downPressed) playerY += moveSpd;
             playerY = Math.min(Math.max(0, playerY), gameH - paddleH);
             
             updateAI();
             
-            ballX += ballSpdX;
-            ballY += ballSpdY;
+            ballX += ballVx;
+            ballY += ballVy;
             
-            // границы Y
-            if(ballY - ballSize/2 <= 0) {
+            // Стены (верх/низ)
+            if (ballY - ballSize/2 <= 0) {
                 ballY = ballSize/2;
-                ballSpdY = Math.abs(ballSpdY);
-                soundWall();
+                ballVy = Math.abs(ballVy);
+                wallSound();
                 addParticles(ballX, 0);
             }
-            if(ballY + ballSize/2 >= gameH) {
+            if (ballY + ballSize/2 >= gameH) {
                 ballY = gameH - ballSize/2;
-                ballSpdY = -Math.abs(ballSpdY);
-                soundWall();
+                ballVy = -Math.abs(ballVy);
+                wallSound();
                 addParticles(ballX, gameH);
             }
             
-            // Ракетка игрока (левая)
-            if(ballX - ballSize/2 <= paddleW && ballX + ballSize/2 > 0 && 
-               ballY + ballSize/2 >= playerY && ballY - ballSize/2 <= playerY + paddleH && ballSpdX < 0) {
+            // === Столкновение с левой ракеткой (игрок) ===
+            // Условие: мяч касается левой ракетки, движется влево, координаты пересекаются
+            if (ballVx < 0 && 
+                ballX - ballSize/2 <= paddleW && 
+                ballX + ballSize/2 >= 0 &&
+                ballY + ballSize/2 >= playerY && 
+                ballY - ballSize/2 <= playerY + paddleH) {
+                
+                // отодвигаем мяч
                 ballX = paddleW + ballSize/2;
                 let hitPos = (ballY - (playerY + paddleH/2)) / (paddleH/2);
-                hitPos = Math.min(0.9, Math.max(-0.9, hitPos));
+                hitPos = Math.min(0.95, Math.max(-0.95, hitPos));
                 let angleRef = hitPos * (Math.PI / 3.2);
-                let speedVal = Math.hypot(ballSpdX, ballSpdY);
-                let newSpd = Math.min(7.5, Math.max(4.8, speedVal));
-                ballSpdX = newSpd * Math.cos(angleRef);
-                ballSpdY = newSpd * Math.sin(angleRef);
-                if(ballSpdX > -2) ballSpdX = -4.2;
-                soundHitPaddle();
+                let curSpeed = Math.hypot(ballVx, ballVy);
+                let newSpeed = Math.min(isMobile ? 7.3 : 9.2, Math.max(isMobile ? 4.6 : 5.5, curSpeed));
+                ballVx = newSpeed * Math.cos(angleRef);
+                ballVy = newSpeed * Math.sin(angleRef);
+                if (ballVx > -3) ballVx = -4.2;
+                hitPaddleSound();
                 addParticles(ballX, ballY);
             }
             
-            // Ракетка AI (правая)
-            if(ballX + ballSize/2 >= gameW - paddleW && ballX - ballSize/2 <= gameW && 
-               ballY + ballSize/2 >= aiY && ballY - ballSize/2 <= aiY + paddleH && ballSpdX > 0) {
+            // === Столкновение с правой ракеткой (AI) — ИСПРАВЛЕНО! ===
+            if (ballVx > 0 && 
+                ballX + ballSize/2 >= gameW - paddleW && 
+                ballX - ballSize/2 <= gameW &&
+                ballY + ballSize/2 >= aiY && 
+                ballY - ballSize/2 <= aiY + paddleH) {
+                
+                // отодвигаем мяч, чтобы избежать застревания
                 ballX = gameW - paddleW - ballSize/2;
                 let hitPos = (ballY - (aiY + paddleH/2)) / (paddleH/2);
-                hitPos = Math.min(0.9, Math.max(-0.9, hitPos));
+                hitPos = Math.min(0.95, Math.max(-0.95, hitPos));
                 let angleRef = hitPos * (Math.PI / 3.2);
-                let speedVal = Math.hypot(ballSpdX, ballSpdY);
-                let newSpd = Math.min(7.5, Math.max(4.8, speedVal));
-                ballSpdX = -newSpd * Math.cos(angleRef);
-                ballSpdY = newSpd * Math.sin(angleRef);
-                if(ballSpdX < 2) ballSpdX = 4.2;
-                soundHitPaddle();
+                let curSpeed = Math.hypot(ballVx, ballVy);
+                let newSpeed = Math.min(isMobile ? 7.3 : 9.2, Math.max(isMobile ? 4.6 : 5.5, curSpeed));
+                ballVx = -newSpeed * Math.cos(angleRef);
+                ballVy = newSpeed * Math.sin(angleRef);
+                if (ballVx < 3) ballVx = 4.2;
+                hitPaddleSound();
                 addParticles(ballX, ballY);
             }
             
             // Голы
-            if(ballX + ballSize/2 < 0) {
+            if (ballX + ballSize/2 < 0) {
                 aiScore++;
                 updateScoreUI();
-                animateScorePop('ai');
-                soundScore();
-                if(aiScore >= WIN_SCORE) endGame('ai');
+                popScoreAnim('ai');
+                scoreSound();
+                if (aiScore >= WIN_SCORE) endGame('ai');
                 else resetBall(1);
             }
-            if(ballX - ballSize/2 > gameW) {
+            if (ballX - ballSize/2 > gameW) {
                 playerScore++;
                 updateScoreUI();
-                animateScorePop('player');
-                soundScore();
-                if(playerScore >= WIN_SCORE) endGame('player');
+                popScoreAnim('player');
+                scoreSound();
+                if (playerScore >= WIN_SCORE) endGame('player');
                 else resetBall(-1);
             }
+            
             updateParticles();
         }
         
-        // отрисовка
+        // ----- Отрисовка -----
         function draw() {
-            ctx.clearRect(0,0,gameW,gameH);
+            ctx.clearRect(0, 0, gameW, gameH);
             ctx.fillStyle = '#0d5e2e';
-            ctx.fillRect(0,0,gameW,gameH);
-            // узоры поля
-            ctx.strokeStyle = 'rgba(230,255,200,0.4)';
-            ctx.lineWidth = Math.max(2, gameW*0.003);
-            ctx.setLineDash([gameH*0.035, gameH*0.035]);
+            ctx.fillRect(0, 0, gameW, gameH);
+            
+            // Сетка поля
+            ctx.strokeStyle = 'rgba(210, 250, 180, 0.45)';
+            ctx.lineWidth = Math.max(2, gameW*0.0035);
+            ctx.setLineDash([gameH*0.038, gameH*0.038]);
             ctx.beginPath();
-            ctx.moveTo(gameW/2,0);
-            ctx.lineTo(gameW/2,gameH);
+            ctx.moveTo(gameW/2, 0);
+            ctx.lineTo(gameW/2, gameH);
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.beginPath();
             ctx.arc(gameW/2, gameH/2, gameH*0.11, 0, Math.PI*2);
             ctx.stroke();
             
-            ctx.shadowBlur = 5;
-            ctx.shadowColor = "rgba(0,0,0,0.3)";
-            ctx.fillStyle = '#eef4ff';
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = "rgba(0,0,0,0.4)";
+            ctx.fillStyle = '#f2f6ff';
             ctx.fillRect(0, playerY, paddleW, paddleH);
-            ctx.fillRect(gameW-paddleW, aiY, paddleW, paddleH);
-            ctx.fillStyle = '#f9f9ff';
+            ctx.fillRect(gameW - paddleW, aiY, paddleW, paddleH);
+            
+            ctx.fillStyle = '#fff9e0';
+            ctx.shadowBlur = 12;
             ctx.beginPath();
             ctx.arc(ballX, ballY, ballSize/2, 0, Math.PI*2);
             ctx.fill();
             ctx.shadowBlur = 0;
             
-            for(let p of particles) {
-                ctx.fillStyle = `rgba(255, 235, 160, ${p.life*0.9})`;
+            // Частицы (золотистые)
+            for (let p of particles) {
+                ctx.fillStyle = `rgba(255, 215, 100, ${p.life * 0.9})`;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size*0.8, 0, Math.PI*2);
+                ctx.arc(p.x, p.y, p.size * 0.7, 0, Math.PI*2);
                 ctx.fill();
             }
             
-            if(paused && !gameOver) {
-                ctx.fillStyle = 'rgba(0,0,0,0.65)';
-                ctx.fillRect(0,0,gameW,gameH);
+            if (paused && !gameOver) {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, gameW, gameH);
                 ctx.fillStyle = 'white';
-                ctx.font = `bold ${Math.floor(gameH*0.08)}px 'Segoe UI'`;
+                ctx.font = `bold ${Math.floor(gameH*0.09)}px 'Segoe UI'`;
                 ctx.textAlign = 'center';
                 ctx.fillText('ПАУЗА', gameW/2, gameH/2);
                 ctx.font = `${Math.floor(gameH*0.04)}px monospace`;
@@ -623,17 +630,17 @@
                 ctx.fillText('Пробел / кнопка', gameW/2, gameH/2 + gameH*0.1);
                 ctx.textAlign = 'left';
             }
-            if(gameOver) {
-                ctx.fillStyle = 'rgba(0,0,0,0.55)';
-                ctx.fillRect(0,0,gameW,gameH);
-                ctx.fillStyle = '#ffea90';
-                ctx.font = `bold ${Math.floor(gameH*0.07)}px 'Segoe UI'`;
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0,0,0,0.65)';
+                ctx.fillRect(0, 0, gameW, gameH);
+                ctx.fillStyle = '#ffe5a3';
+                ctx.font = `bold ${Math.floor(gameH*0.08)}px 'Segoe UI'`;
                 ctx.textAlign = 'center';
-                let overMsg = playerScore === WIN_SCORE ? "ВЫ ПОБЕДИЛИ!" : "AI ПОБЕДИЛ";
-                ctx.fillText(overMsg, gameW/2, gameH/2);
-                ctx.fillStyle = '#ccc';
+                let msg = playerScore === WIN_SCORE ? "ВЫ ПОБЕДИЛИ!" : "ПОБЕДА AI";
+                ctx.fillText(msg, gameW/2, gameH/2);
+                ctx.fillStyle = '#bbb';
                 ctx.font = `${Math.floor(gameH*0.045)}px monospace`;
-                ctx.fillText("Нажмите 'Новая игра'", gameW/2, gameH/2 + gameH*0.12);
+                ctx.fillText("Нажмите 'НОВАЯ ИГРА'", gameW/2, gameH/2 + gameH*0.12);
                 ctx.textAlign = 'left';
             }
         }
@@ -644,92 +651,89 @@
             requestAnimationFrame(gameLoop);
         }
         
-        // -------- Управление ----------
+        // ----- Управление паузой и кнопками -----
         function togglePause() {
-            if(gameOver) return;
+            if (gameOver) return;
             paused = !paused;
             updatePauseButtonsText();
             updateMessageText();
         }
         
         function updatePauseButtonsText() {
-            if(desktopPause) desktopPause.innerText = paused ? '▶ ИГРАТЬ' : '⏸ ПАУЗА';
-            if(mobilePause) mobilePause.innerText = paused ? '▶' : '⏸';
+            if (desktopPause) desktopPause.innerText = paused ? '▶ ИГРАТЬ' : '⏸ ПАУЗА';
+            if (mobilePause) mobilePause.innerText = paused ? '▶' : '⏸';
         }
         
-        // События клавиатуры
+        // Клавиатура
         window.addEventListener('keydown', (e) => {
-            if(e.key === 'ArrowUp') { e.preventDefault(); upPressed = true; initAudio(); }
-            if(e.key === 'ArrowDown') { e.preventDefault(); downPressed = true; initAudio(); }
-            if(e.key === ' ' || e.code === 'Space') { e.preventDefault(); if(!gameOver) togglePause(); }
-            if(e.key === 'r' || e.key === 'R') { e.preventDefault(); initAudio(); resizeCanvas(); resetGameFull(); }
+            if (e.key === 'ArrowUp') { e.preventDefault(); upPressed = true; initAudio(); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); downPressed = true; initAudio(); }
+            if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); if (!gameOver) togglePause(); }
+            if (e.key === 'r' || e.key === 'R') { e.preventDefault(); initAudio(); resizeCanvas(); resetFullGame(); }
         });
         window.addEventListener('keyup', (e) => {
-            if(e.key === 'ArrowUp') upPressed = false;
-            if(e.key === 'ArrowDown') downPressed = false;
+            if (e.key === 'ArrowUp') upPressed = false;
+            if (e.key === 'ArrowDown') downPressed = false;
         });
         
-        // Мышь/тач управление ракеткой (левая половина)
-        function handleMove(clientY, rect) {
-            let relativeY = clientY - rect.top;
-            let newY = relativeY - paddleH/2;
+        // Мышь и тач (левая половина)
+        function movePaddleByY(clientY, rect) {
+            let relative = clientY - rect.top;
+            let newY = relative - paddleH/2;
             playerY = Math.min(Math.max(0, newY), gameH - paddleH);
         }
         
         canvas.addEventListener('mousemove', (e) => {
-            if(!isMobile && e.clientX - canvas.getBoundingClientRect().left < gameW/2) {
+            if (!isMobile && e.clientX - canvas.getBoundingClientRect().left < gameW/2) {
                 initAudio();
-                handleMove(e.clientY, canvas.getBoundingClientRect());
+                movePaddleByY(e.clientY, canvas.getBoundingClientRect());
             }
         });
         canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            if(e.touches[0].clientX - canvas.getBoundingClientRect().left < gameW/2) {
+            const rect = canvas.getBoundingClientRect();
+            if (e.touches[0].clientX - rect.left < gameW/2) {
                 initAudio();
-                handleMove(e.touches[0].clientY, canvas.getBoundingClientRect());
+                movePaddleByY(e.touches[0].clientY, rect);
             }
         }, {passive: false});
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if(e.touches[0].clientX - canvas.getBoundingClientRect().left < gameW/2) {
+            const rect = canvas.getBoundingClientRect();
+            if (e.touches[0].clientX - rect.left < gameW/2) {
                 initAudio();
-                handleMove(e.touches[0].clientY, canvas.getBoundingClientRect());
+                movePaddleByY(e.touches[0].clientY, rect);
             }
         }, {passive: false});
         
-        // мобильные кнопки
-        function setBtnState(btn, stateVar, value) {
-            if(btn === 'up') upPressed = value;
-            if(btn === 'down') downPressed = value;
-        }
-        function attachHold(btnElem, dir) {
+        // Мобильные кнопки с зажатием
+        function bindHold(btnElem, dir) {
+            if (!btnElem) return;
             let active = false;
-            const start = () => { active=true; initAudio(); setBtnState(dir,true); };
-            const end = () => { active=false; setBtnState(dir,false); };
-            btnElem.addEventListener('mousedown', start);
-            btnElem.addEventListener('mouseup', end);
-            btnElem.addEventListener('mouseleave', end);
-            btnElem.addEventListener('touchstart', (e) => { e.preventDefault(); start(); });
-            btnElem.addEventListener('touchend', (e) => { e.preventDefault(); end(); });
-            btnElem.addEventListener('touchcancel', end);
+            const startHold = () => { active = true; initAudio(); if (dir === 'up') upPressed = true; else downPressed = true; };
+            const endHold = () => { active = false; if (dir === 'up') upPressed = false; else downPressed = false; };
+            btnElem.addEventListener('mousedown', startHold);
+            btnElem.addEventListener('mouseup', endHold);
+            btnElem.addEventListener('mouseleave', endHold);
+            btnElem.addEventListener('touchstart', (e) => { e.preventDefault(); startHold(); });
+            btnElem.addEventListener('touchend', (e) => { e.preventDefault(); endHold(); });
+            btnElem.addEventListener('touchcancel', endHold);
         }
-        if(btnUp) attachHold(btnUp, 'up');
-        if(btnDown) attachHold(btnDown, 'down');
+        bindHold(btnUp, 'up');
+        bindHold(btnDown, 'down');
         
-        if(desktopPause) desktopPause.addEventListener('click', () => { initAudio(); togglePause(); });
-        if(mobilePause) mobilePause.addEventListener('click', (e) => { e.preventDefault(); initAudio(); togglePause(); });
-        if(restartBtn) restartBtn.addEventListener('click', () => { initAudio(); resizeCanvas(); resetGameFull(); });
+        if (desktopPause) desktopPause.addEventListener('click', () => { initAudio(); togglePause(); });
+        if (mobilePause) mobilePause.addEventListener('click', (e) => { e.preventDefault(); initAudio(); togglePause(); });
+        if (restartBtn) restartBtn.addEventListener('click', () => { initAudio(); resizeCanvas(); resetFullGame(); });
         
-        // Инициализация игры
-        window.addEventListener('resize', () => { detectMobileFlag(); resizeCanvas(); if(!gameOver && !paused) resetGameFull(); else resizeCanvas(); });
+        window.addEventListener('resize', () => { detectMobileFlag(); resizeCanvas(); if (!gameOver && !paused) resetFullGame(); else resizeCanvas(); });
         window.addEventListener('orientationchange', () => { setTimeout(() => { detectMobileFlag(); resizeCanvas(); }, 80); });
         
         detectMobileFlag();
         resizeCanvas();
-        resetGameFull();
+        resetFullGame();
         gameLoop();
         
-        // Активация звука по первому касанию
         function firstAudio() { initAudio(); document.removeEventListener('click', firstAudio); document.removeEventListener('touchstart', firstAudio); }
         document.addEventListener('click', firstAudio);
         document.addEventListener('touchstart', firstAudio);
